@@ -54,7 +54,7 @@ void datetime_to_str(char *buf, uint buf_size, const datetime_t *t) {
              t->min,
              t->sec,
              t->year);
-};
+}
 
 void datetime_to_tm(const datetime_t *dt, struct tm *tm) {
     tm->tm_year = dt->year - 1900;

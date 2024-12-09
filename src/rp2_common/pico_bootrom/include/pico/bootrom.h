@@ -127,7 +127,7 @@ static inline uint32_t rom_table_code(uint8_t c1, uint8_t c2) {
  * \param code the code
  * \return a pointer to the function, or NULL if the code does not match any bootrom function
  */
-void *rom_func_lookup(uint32_t code);
+void (*rom_func_lookup(uint32_t code))(void);
 
 /*!
  * \brief Lookup a bootrom data address by its code
@@ -135,7 +135,7 @@ void *rom_func_lookup(uint32_t code);
  * \param code the code
  * \return a pointer to the data, or NULL if the code does not match any bootrom function
  */
-void *rom_data_lookup(uint32_t code);
+uintptr_t rom_data_lookup(uint32_t code);
 
 /*!
  * \brief Helper function to lookup the addresses of multiple bootrom functions
@@ -153,17 +153,19 @@ bool rom_funcs_lookup(uint32_t *table, unsigned int count);
 // Bootrom function: rom_table_lookup
 // Returns the 32 bit pointer into the ROM if found or NULL otherwise.
 #if PICO_RP2040
-typedef void *(*rom_table_lookup_fn)(uint16_t *table, uint32_t code);
+typedef uintptr_t (*rom_table_lookup_fn)(uint16_t *table, uint32_t code);       // sometimes data, sometimes func.
+//typedef void (*(*rom_table_lookup_fn)(uint16_t *table, uint32_t code))(void); // function that returns func. ptr type
+//typedef void *(*rom_table_dtlookup_fn)(uint16_t *table, uint32_t code);       // original, renamed. pointer-to-void type
 #else
 typedef void *(*rom_table_lookup_fn)(uint32_t code, uint32_t mask);
 #endif
 
 #if PICO_C_COMPILER_IS_GNU && (__GNUC__ >= 12)
 // Convert a 16 bit pointer stored at the given rom address into a 32 bit pointer
-__force_inline static void *rom_hword_as_ptr(uint16_t rom_address) {
+__force_inline static uintptr_t rom_hword_as_ptr(uint16_t rom_address) {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Warray-bounds"
-    return (void *)(uintptr_t)*(uint16_t *)(uintptr_t)rom_address;
+    return (uintptr_t)*(uint16_t *)(uintptr_t)rom_address;
 #pragma GCC diagnostic pop
 }
 #else
@@ -190,7 +192,7 @@ static __force_inline bool rom_size_is_64k(void) {
 #pragma GCC diagnostic push
 // diagnostic: GCC thinks near-zero value is a null pointer member access, but it's not
 #pragma GCC diagnostic ignored "-Warray-bounds"
-static __force_inline void *rom_func_lookup_inline(uint32_t code) {
+static __force_inline void (*rom_func_lookup_inline(uint32_t code))(void) {
 #if PICO_RP2040
     rom_table_lookup_fn rom_table_lookup = (rom_table_lookup_fn) rom_hword_as_ptr(BOOTROM_TABLE_LOOKUP_OFFSET);
     uint16_t *func_table = (uint16_t *) rom_hword_as_ptr(BOOTROM_FUNC_TABLE_OFFSET);

@@ -12,10 +12,10 @@
 #include "hardware/structs/pads_bank0.h"
 #include "pico/fix/rp2040_usb_device_enumeration.h"
 
-#define LS_SE0 0b00
-#define LS_J   0b01
-#define LS_K   0b10
-#define LS_SE1 0b11
+#define LS_SE0 0x0 // 0b00
+#define LS_J   0x1 // 0b01
+#define LS_K   0x2 // 0b10
+#define LS_SE1 0x3 // 0b11
 
 #if PICO_RP2040_B0_SUPPORTED || PICO_RP2040_B1_SUPPORTED
 static void hw_enumeration_fix_wait_se0(void);

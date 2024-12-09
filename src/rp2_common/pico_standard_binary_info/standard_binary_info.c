@@ -31,7 +31,7 @@ bi_decl_with_attr(bi_binary_end((intptr_t)&__flash_binary_end), section_hack_att
 #ifndef PICO_PROGRAM_BUILD_DATE
 #define PICO_PROGRAM_BUILD_DATE __DATE__
 #endif
-bi_decl_with_attr(bi_program_build_date_string(PICO_PROGRAM_BUILD_DATE), section_hack_attr);
+bi_decl_with_attr(bi_program_build_date_string(PICO_PROGRAM_BUILD_DATE), section_hack_attr)
 #endif
 
 #if !PICO_NO_BI_PROGRAM_NAME

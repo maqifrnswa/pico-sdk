@@ -35,19 +35,19 @@ static inline irq_handler_t *get_vtable(void) {
 #endif
 }
 
-static inline void *add_thumb_bit(void *addr) {
+static inline uintptr_t add_thumb_bit(void *addr) {
 #ifdef __riscv
     return addr;
 #else
-    return (void *) (((uintptr_t) addr) | 0x1);
+    return (((uintptr_t) addr) | 0x1);
 #endif
 }
 
-static inline void *remove_thumb_bit(void *addr) {
+static inline uintptr_t remove_thumb_bit(uintptr_t addr) {
 #ifdef __riscv
     return addr;
 #else
-    return (void *) (((uintptr_t) addr) & (uint)~0x1);
+    return (((uintptr_t) addr) & (uint)~0x1);
 #endif
 }
 
@@ -250,7 +250,7 @@ irq_handler_t irq_get_exclusive_handler(uint num) {
 
 #ifndef __riscv
 
-static uint16_t make_j_16(uint16_t *from, void *to) {
+static uint16_t make_j_16(uint16_t *from, uintptr_t to) {
     uint32_t ui_from = (uint32_t)from;
     uint32_t ui_to = (uint32_t)to;
     int32_t delta = (int32_t)(ui_to - ui_from - 4);
@@ -258,7 +258,7 @@ static uint16_t make_j_16(uint16_t *from, void *to) {
     return (uint16_t)(0xe000 | ((delta >> 1) & 0x7ff));
 }
 
-static void insert_bl_32(uint16_t *from, void *to) {
+static void insert_bl_32(uint16_t *from, uintptr_t to) {
     uint32_t ui_from = (uint32_t)from;
     uint32_t ui_to = (uint32_t)to;
     uint32_t delta = (ui_to - ui_from - 4) / 2;
@@ -267,11 +267,11 @@ static void insert_bl_32(uint16_t *from, void *to) {
     from[1] = (uint16_t)(0xf800 | (delta & 0x7ffu));
 }
 
-static inline void *resolve_j_16(uint16_t *inst) {
+static inline uintptr_t resolve_j_16(uint16_t *inst) {
     assert(0x1c == (*inst)>>11u);
     int32_t i_addr = (*inst) << 21u;
     i_addr /= (int32_t)(1u<<21u);
-    return inst + 2 + i_addr;
+    return (uintptr_t)(inst + 2 + i_addr);
 }
 
 #else
@@ -373,7 +373,7 @@ void irq_add_shared_handler(uint num, irq_handler_t handler, uint8_t order_prior
         struct irq_handler_chain_slot slot_data = {
 #ifndef __riscv
                 .inst1 = 0xa100,                                                             // add r1, pc, #0
-                .inst2 = make_j_16(&slot->inst2, (void *) irq_handler_chain_first_slot),     // b irq_handler_chain_first_slot
+                .inst2 = make_j_16(&slot->inst2, (uintptr_t) irq_handler_chain_first_slot),     // b irq_handler_chain_first_slot
                 .handler = handler,
 #else
                 .inst1 = make_jal_t0_32(&slot->inst1, irq_handler_chain_first_slot),         // jal t0, irq_handler_chain_first_slot
@@ -388,7 +388,7 @@ void irq_add_shared_handler(uint num, irq_handler_t handler, uint8_t order_prior
     } else {
         assert(!((((uintptr_t)remove_thumb_bit(vtable_handler)) - ((uintptr_t)irq_handler_chain_slots)) % sizeof(struct irq_handler_chain_slot)));
         struct irq_handler_chain_slot *prev_slot = NULL;
-        struct irq_handler_chain_slot *existing_vtable_slot = remove_thumb_bit((void *) vtable_handler);
+        struct irq_handler_chain_slot *existing_vtable_slot = (struct irq_handler_chain_slot *)remove_thumb_bit((uintptr_t) vtable_handler);
         struct irq_handler_chain_slot *cur_slot = existing_vtable_slot;
         while (cur_slot->priority > order_priority) {
             prev_slot = cur_slot;
@@ -413,7 +413,7 @@ void irq_add_shared_handler(uint num, irq_handler_t handler, uint8_t order_prior
                     .priority = order_priority
             };
             // update code and data links
-            prev_slot->inst3 = make_j_16(&prev_slot->inst3, slot),
+            prev_slot->inst3 = make_j_16(&prev_slot->inst3, (uintptr_t)slot),
             prev_slot->link = slot_index;
             *slot = slot_data;
         } else {
@@ -421,13 +421,13 @@ void irq_add_shared_handler(uint num, irq_handler_t handler, uint8_t order_prior
             struct irq_handler_chain_slot slot_data = {
 #ifndef __riscv
                     .inst1 = 0xa100,                                                           // add r1, pc, #0
-                    .inst2 = make_j_16(&slot->inst2, (void *) irq_handler_chain_first_slot),   // b irq_handler_chain_first_slot
+                    .inst2 = make_j_16(&slot->inst2, (uintptr_t) irq_handler_chain_first_slot),   // b irq_handler_chain_first_slot
                     .handler = handler,
 #else
                     .inst1 = make_jal_t0_32(&slot->inst1, irq_handler_chain_first_slot),       // jal t0, irq_handler_chain_first_slot
                     .inst2 = (uint32_t)handler,                                                // (t0 points to handler)
 #endif
-                    .inst3 = make_j_16(&slot->inst3, existing_vtable_slot),                    // b existing_slot
+                    .inst3 = make_j_16(&slot->inst3, (uintptr_t) existing_vtable_slot),                    // b existing_slot
                     .link = get_slot_index(existing_vtable_slot),
                     .priority = order_priority,
             };
@@ -499,7 +499,7 @@ void irq_remove_handler(uint num, irq_handler_t handler) {
             hard_assert(!exception || exception == num + VTABLE_FIRST_IRQ);
 
             struct irq_handler_chain_slot *prev_slot = NULL;
-            struct irq_handler_chain_slot *existing_vtable_slot = remove_thumb_bit((void *) vtable_handler);
+            struct irq_handler_chain_slot *existing_vtable_slot = (struct irq_handler_chain_slot *)remove_thumb_bit((uintptr_t) vtable_handler);
             struct irq_handler_chain_slot *to_free_slot = existing_vtable_slot;
             while (handler_from_slot(to_free_slot) != handler) {
                 prev_slot = to_free_slot;
@@ -555,7 +555,7 @@ void irq_remove_handler(uint num, irq_handler_t handler) {
 #ifndef __riscv
                         // NOTE THAT THIS TRASHES PRIORITY AND LINK SINCE THIS IS A 4 BYTE INSTRUCTION
                         //      BUT THEY ARE NOT NEEDED NOW
-                        insert_bl_32(&to_free_slot->inst3, (void *) irq_handler_chain_remove_tail);
+                        insert_bl_32(&to_free_slot->inst3, (uintptr_t) irq_handler_chain_remove_tail);
 #else
                         to_free_slot->inst3 = make_jal_16(&to_free_slot->inst3, (void*) irq_handler_chain_remove_tail);
 #endif

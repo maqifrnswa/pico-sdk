@@ -19,7 +19,7 @@ static __attribute__((noreturn)) void missing_double_func_shim(void) {
 #endif
 extern void double_table_shim_on_use_helper(void);
 
-void __attribute__((weak)) *sf_clz_func;
+void __attribute__((weak)) (*sf_clz_func)(void);
 
 void __aeabi_double_init(void) {
     int rom_version = rp2040_rom_version();
@@ -46,8 +46,8 @@ void __aeabi_double_init(void) {
     }
 #endif
     if (rom_version >= 2) {
-        void *rom_table_double = rom_data_lookup(rom_table_code('S', 'D'));
-        void *rom_table_float = rom_data_lookup(rom_table_code('S', 'F'));
+        void *rom_table_double = (void *) rom_data_lookup(rom_table_code('S', 'D'));
+        void *rom_table_float = (void *) rom_data_lookup(rom_table_code('S', 'F'));
         assert(*((uint8_t *)(((void *)rom_table_float)-2)) * 4 >= SF_TABLE_V2_SIZE);
         (void)rom_table_float;
         memcpy(&sd_table, rom_table_double, SF_TABLE_V2_SIZE);
